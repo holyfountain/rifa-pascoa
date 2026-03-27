@@ -517,6 +517,27 @@
       color: #fff;
     }
 
+    /* ── Notification email button (admin only) ── */
+    .notif-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 114px;
+      z-index: 150;
+      display: none;
+      background: rgba(21,101,192,.12);
+      border: 2px solid #1565c0;
+      color: #1565c0;
+      border-radius: 50px;
+      padding: 8px 16px;
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: background .2s;
+    }
+    body.admin-mode .notif-btn { display: inline-block; }
+    .notif-btn:hover { background: rgba(21,101,192,.25); }
+
     /* ── Admin badge on bought cells ── */
     body.admin-mode .cell.bought {
       cursor: pointer !important;
@@ -618,6 +639,8 @@
   <!-- Firebase SDK (compat mode — works directly in a single HTML file) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <!-- EmailJS — client-side email sending (emailjs.com) -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -698,7 +721,23 @@
   <footer>Boa sorte a todos! 🐰🌸</footer>
 
   <!-- Admin toggle button -->
+  <button class="notif-btn" id="notif-btn" title="E-mail de notificações">📧 Notif</button>
   <button class="admin-btn" id="admin-btn" title="Modo admin">🔒 Admin</button>
+
+  <!-- Notification email modal (admin only) -->
+  <div class="overlay" id="notif-overlay">
+    <div class="modal">
+      <div class="modal-egg">📧</div>
+      <h2>E-mail de notificações</h2>
+      <p style="font-size:.85rem;color:#666;margin-bottom:12px">Endereço para onde são enviadas as notificações de compra (60 s após a última seleção). Deixa em branco para desactivar.</p>
+      <input type="email" id="notif-input" placeholder="exemplo@email.com" maxlength="100" autocomplete="off" />
+      <div class="modal-error" id="notif-error"></div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" id="notif-cancel">✖ Cancelar</button>
+        <button class="btn btn-confirm" id="notif-save">✔ Guardar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Password modal -->
   <div class="overlay" id="pw-overlay">
@@ -795,6 +834,23 @@
       measurementId:     "G-DRHB5EF9YM"
     };
     // ════════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════════
+    //  EMAILJS CONFIG  ← regista em emailjs.com e preenche estes valores
+    //  1. Cria conta em emailjs.com
+    //  2. Add New Service (Gmail / Outlook) → anota o Service ID
+    //  3. Email Templates → cria template com as variáveis abaixo → anota o Template ID
+    //  4. Account → API Keys → anota a Public Key
+    //  Variáveis do template: {{to_email}} {{participant_name}} {{numbers_list}}
+    //                         {{total_numbers}} {{raffle_url}}
+    // ════════════════════════════════════════════════════════════════════
+    const EMAILJS_CONFIG = {
+      publicKey:  'PASTE_YOUR_PUBLIC_KEY',   // Account → API Keys
+      serviceId:  'PASTE_YOUR_SERVICE_ID',   // Email Services → Service ID
+      templateId: 'PASTE_YOUR_TEMPLATE_ID',  // Email Templates → Template ID
+    };
+    // ════════════════════════════════════════════════════════════════════
+
     const LOCK_TTL  = 30_000; // ms — lock auto-expires if modal is abandoned
     const CLIENT_ID = Math.random().toString(36).slice(2); // unique per tab/browser
 
@@ -806,13 +862,14 @@
     }
 
     // ── Firebase init ─────────────────────────────────────────────────────
-    let db, numbersRef, lockRef, paymentsRef;
+    let db, numbersRef, lockRef, paymentsRef, notifEmailRef;
     if (isConfigured) {
       firebase.initializeApp(FIREBASE_CONFIG);
-      db          = firebase.database();
-      numbersRef  = db.ref('rifa2/numbers');
-      lockRef     = db.ref('rifa2/lock');
-      paymentsRef = db.ref('rifa2/payments');
+      db             = firebase.database();
+      numbersRef     = db.ref('rifa2/numbers');
+      lockRef        = db.ref('rifa2/lock');
+      paymentsRef    = db.ref('rifa2/payments');
+      notifEmailRef  = db.ref('rifa2/config/notificationEmail');
     }
 
     // ── App state ─────────────────────────────────────────────────────────
@@ -820,7 +877,9 @@
     let payments     = {}; // { [nameKey]: true } — admin payment tracking
     let currentLock  = null;
     let pendingNumber= null;
-    let lockExpiryTimer = null;
+    let lockExpiryTimer   = null;
+    let notificationEmail = '';
+    const pendingNotifs   = {}; // { nameKey: { timer, nums[] } } — 60 s debounce
 
     // ── DOM refs ──────────────────────────────────────────────────────────
     const gridEl        = document.getElementById('grid');
@@ -995,6 +1054,7 @@
       const numCopy = pendingNumber;
       closeModal();
       showToast(`🎉 Número ${numCopy} reservado para ${name}!`);
+      scheduleNotification(name, numCopy);
     }
 
     // ── Buyers panel ──────────────────────────────────────────────────────
@@ -1056,6 +1116,38 @@
     function nameKey(name) {
       // Produce a valid Firebase key from a participant name (no . # $ / [ ])
       return name.toLowerCase().trim().replace(/[.#$\/\[\]]/g, '_');
+    }
+
+    // ── Email notifications ─────────────────────────────────────────────────
+    const NOTIF_DELAY  = 60_000; // ms — wait 60 s after last purchase before sending
+    const emailjsReady = EMAILJS_CONFIG.publicKey && !EMAILJS_CONFIG.publicKey.startsWith('PASTE_');
+    if (emailjsReady) emailjs.init(EMAILJS_CONFIG.publicKey);
+
+    function scheduleNotification(name, num) {
+      if (!emailjsReady || !notificationEmail) return;
+      const key = nameKey(name);
+      if (pendingNotifs[key]) {
+        clearTimeout(pendingNotifs[key].timer);
+        if (!pendingNotifs[key].nums.includes(num)) pendingNotifs[key].nums.push(num);
+      } else {
+        pendingNotifs[key] = { nums: [num] };
+      }
+      pendingNotifs[key].timer = setTimeout(() => {
+        const nums = pendingNotifs[key].nums.slice().sort((a, b) => a - b);
+        delete pendingNotifs[key];
+        sendNotificationEmail(name, nums);
+      }, NOTIF_DELAY);
+    }
+
+    function sendNotificationEmail(name, nums) {
+      if (!emailjsReady || !notificationEmail) return;
+      emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+        to_email:         notificationEmail,
+        participant_name: name,
+        numbers_list:     nums.join(', '),
+        total_numbers:    nums.length,
+        raffle_url:       window.location.href,
+      }).catch(err => console.error('EmailJS send error:', err));
     }
 
     // ── Payment checkbox handler ──────────────────────────────────────────
@@ -1193,6 +1285,52 @@
       }
       editDelete.disabled = false;
     }
+    // ── Notification email admin modal ────────────────────────────────────
+    const notifBtn     = document.getElementById('notif-btn');
+    const notifOverlay = document.getElementById('notif-overlay');
+    const notifInput   = document.getElementById('notif-input');
+    const notifError   = document.getElementById('notif-error');
+    const notifCancel  = document.getElementById('notif-cancel');
+    const notifSaveBtn = document.getElementById('notif-save');
+
+    notifBtn.addEventListener('click', () => {
+      notifInput.value       = notificationEmail;
+      notifError.textContent = '';
+      notifOverlay.classList.add('open');
+      setTimeout(() => { notifInput.focus(); notifInput.select(); }, 100);
+    });
+    notifCancel.addEventListener('click', () => notifOverlay.classList.remove('open'));
+    notifOverlay.addEventListener('click', e => {
+      if (e.target === notifOverlay) notifOverlay.classList.remove('open');
+    });
+    notifInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  saveNotifEmail();
+      if (e.key === 'Escape') notifOverlay.classList.remove('open');
+    });
+    notifSaveBtn.addEventListener('click', saveNotifEmail);
+
+    async function saveNotifEmail() {
+      const email = notifInput.value.trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        notifError.textContent = '⚠️ Endereço de e-mail inválido.';
+        notifInput.focus(); return;
+      }
+      notifSaveBtn.disabled = true;
+      try {
+        if (email) {
+          await notifEmailRef.set(email);
+        } else {
+          await notifEmailRef.remove();
+        }
+        notifOverlay.classList.remove('open');
+        showToast(email ? `📧 Notificações → ${email}` : '📧 Notificações desactivadas');
+      } catch (err) {
+        notifError.textContent = '⚠️ Erro ao guardar. Tenta novamente.';
+        console.error(err);
+      }
+      notifSaveBtn.disabled = false;
+    }
+
     // ── Release lock on page leave ────────────────────────────────────────
     window.addEventListener('beforeunload', () => releaseLock());
 
@@ -1231,6 +1369,11 @@
       paymentsRef.on('value', snapshot => {
         payments = snapshot.val() || {};
         renderBuyers();
+      });
+
+      // Notification email — admin-configurable, persisted in Firebase
+      notifEmailRef.on('value', snapshot => {
+        notificationEmail = snapshot.val() || '';
       });
     }
   </script>
