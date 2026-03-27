@@ -547,9 +547,19 @@
       position: relative;
       z-index: 1;
       text-align: center;
-      font-size: .8rem;
-      color: #9e7952;
-      padding-bottom: 20px;
+      padding: 20px 16px 32px;
+    }
+    footer .footer-box {
+      display: inline-block;
+      background: linear-gradient(135deg, #fff9c4, #ffd6e0);
+      border: 2.5px solid var(--pink);
+      border-radius: 50px;
+      padding: 14px 40px;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--brown);
+      box-shadow: 0 4px 16px var(--shadow);
+      letter-spacing: .5px;
     }
 
     /* ── Admin button ── */
@@ -785,7 +795,7 @@
     <div class="buyers-grid" id="buyers-grid"></div>
   </div>
 
-  <footer>Boa sorte a todos! 🐰🌸</footer>
+  <footer><span class="footer-box">Boa sorte a todos! 🐰🌸</span></footer>
 
   <!-- Rules modal -->
   <div class="overlay" id="rules-overlay">
