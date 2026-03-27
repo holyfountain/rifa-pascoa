@@ -2,7 +2,7 @@
 
 Aplicação web para gestão de uma rifa temática de Páscoa, acessível a qualquer pessoa através do browser, sem necessidade de instalação.
 
-**🔗 Acesso directo:** [tantunescisco.github.io/rifa-pascoa](https://tantunescisco.github.io/rifa-pascoa/)
+**🔗 Acesso directo:** [holyfountain.github.io/rifa-pascoa](https://holyfountain.github.io/rifa-pascoa/)
 
 ---
 
