@@ -1252,7 +1252,7 @@ Transparência total para conhecermos os grandes vencedores. 🎥</div>
     }
 
     // ── Email notifications ─────────────────────────────────────────────────
-    const NOTIF_DELAY  = 60_000; // ms — wait 60 s after last purchase before sending
+    const NOTIF_DELAY  = 15_000; // ms — wait 15 s after last purchase before sending
     const emailjsReady = EMAILJS_CONFIG.publicKey && !EMAILJS_CONFIG.publicKey.startsWith('PASTE_');
     if (emailjsReady) emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey }); // v4 syntax
 
