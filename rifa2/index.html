@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🐣 Rifa de Páscoa</title>
+  <title>🐣 Rifa de Páscoa II</title>
   <style>
     /* ── Reset & Variables ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -414,6 +414,38 @@
     }
     .price-tag strong { color: var(--brown); font-size: 1.1rem; }
 
+    /* ── Rules button ── */
+    .rules-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #fff9c4, #ffd6e0);
+      border: 1.5px solid var(--pink);
+      border-radius: 50px;
+      padding: 4px 18px;
+      font-size: 1.05rem;
+      color: #5a3a1a;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+    .rules-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 14px var(--shadow); }
+
+    /* ── Rules modal ── */
+    .rules-box {
+      text-align: left;
+      background: #fffdf7;
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-top: 14px;
+      font-size: .92rem;
+      color: #3a2a1a;
+      line-height: 1.75;
+      border: 1.5px solid var(--yellow);
+      white-space: pre-wrap;
+      max-height: 55vh;
+      overflow-y: auto;
+    }
+
     /* ── Prizes section ── */
     /* ── Prizes section ── */
     .prizes-section {
@@ -657,10 +689,13 @@
   <!-- Header -->
   <header>
     <div class="header-badge">
-      <h1>🐣 Rifa de Páscoa 🐣</h1>
+      <h1>🐣 Rifa de Páscoa II 🐣</h1>
       <img src="../logo.png" alt="Logo" class="header-logo" />
       <p>Escolhe o(s) teu(s) número(s) e concorre a prémios incríveis!</p>
-      <p class="price-tag">💶 Cada número: <strong>1 €</strong></p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:10px">
+        <p class="price-tag">💶 Cada número: <strong>1 €</strong></p>
+        <button class="rules-btn" id="rules-btn">📜 Regras</button>
+      </div>
     </div>
   </header>
 
@@ -719,6 +754,36 @@
   </div>
 
   <footer>Boa sorte a todos! 🐰🌸</footer>
+
+  <!-- Rules modal -->
+  <div class="overlay" id="rules-overlay">
+    <div class="modal" style="max-width:460px">
+      <div class="modal-egg">📜</div>
+      <h2>Regras do Sorteio</h2>
+      <div class="rules-box">🐰 SORTEIO DE PÁSCOA II📢
+Habilita-te a ganhar prémios incríveis por apenas 1€! 🐣
+
+Queres rechear a tua Páscoa com mimos exclusivos?
+
+Como funciona?
+1️⃣ Escolhe o teu número da sorte (de 1 a 100).
+2️⃣ Cada número custa apenas 1€.
+3️⃣ Faz o pagamento via MB Way para o número [964015229] com a nota &quot;Rifa N°... + Teu Nome&quot;.
+
+Os Prémios: 🎁
+🥇 1º Prémio: Gift Box Surprise no valor de 25€
+🥈 2º Prémio: Gift Box Surprise no valor de 20€
+🥉 3º Prémio: Boné personalizado com nome
+🏅 4º Prémio: Bloco notas personalizado com nome
+
+📅 Data do Sorteio:
+Dia 1 de Abril, às 15h, em direto aqui na página!
+Transparência total para conhecermos os grandes vencedores. 🎥</div>
+      <div class="modal-actions" style="margin-top:18px">
+        <button class="btn btn-confirm" id="rules-close" style="background:linear-gradient(135deg,var(--pink),#c2185b)">✔ Fechar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Admin toggle button -->
   <button class="notif-btn" id="notif-btn" title="E-mail de notificações">📧 Ativar Notificação</button>
@@ -1294,6 +1359,18 @@
       }
       editDelete.disabled = false;
     }
+    // ── Rules modal ───────────────────────────────────────────────────────
+    document.getElementById('rules-btn').addEventListener('click', () => {
+      document.getElementById('rules-overlay').classList.add('open');
+    });
+    document.getElementById('rules-close').addEventListener('click', () => {
+      document.getElementById('rules-overlay').classList.remove('open');
+    });
+    document.getElementById('rules-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('rules-overlay'))
+        document.getElementById('rules-overlay').classList.remove('open');
+    });
+
     // ── Notification email admin modal ────────────────────────────────────
     const notifBtn     = document.getElementById('notif-btn');
     const notifOverlay = document.getElementById('notif-overlay');
