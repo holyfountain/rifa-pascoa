@@ -1121,10 +1121,11 @@
     // ── Email notifications ─────────────────────────────────────────────────
     const NOTIF_DELAY  = 60_000; // ms — wait 60 s after last purchase before sending
     const emailjsReady = EMAILJS_CONFIG.publicKey && !EMAILJS_CONFIG.publicKey.startsWith('PASTE_');
-    if (emailjsReady) emailjs.init(EMAILJS_CONFIG.publicKey);
+    if (emailjsReady) emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey }); // v4 syntax
 
     function scheduleNotification(name, num) {
-      if (!emailjsReady || !notificationEmail) return;
+      if (!emailjsReady) { console.warn('[Notif] EmailJS not configured'); return; }
+      if (!notificationEmail) { console.warn('[Notif] No notification email set — set one via the 📧 Notif admin button'); return; }
       const key = nameKey(name);
       if (pendingNotifs[key]) {
         clearTimeout(pendingNotifs[key].timer);
@@ -1132,6 +1133,7 @@
       } else {
         pendingNotifs[key] = { nums: [num] };
       }
+      console.log(`[Notif] Scheduled for "${name}" — nums so far: ${pendingNotifs[key].nums}. Sending in 60 s unless more are added.`);
       pendingNotifs[key].timer = setTimeout(() => {
         const nums = pendingNotifs[key].nums.slice().sort((a, b) => a - b);
         delete pendingNotifs[key];
@@ -1141,13 +1143,20 @@
 
     function sendNotificationEmail(name, nums) {
       if (!emailjsReady || !notificationEmail) return;
+      console.log(`[Notif] Sending email to ${notificationEmail} for "${name}" — numbers: ${nums}`);
       emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
         to_email:         notificationEmail,
         participant_name: name,
         numbers_list:     nums.join(', '),
         total_numbers:    nums.length,
         raffle_url:       window.location.href,
-      }).catch(err => console.error('EmailJS send error:', err));
+      }).then(() => {
+        console.log(`[Notif] ✅ Email sent successfully to ${notificationEmail}`);
+        showToast(`📧 Notificação enviada para ${notificationEmail}`);
+      }).catch(err => {
+        console.error('[Notif] ❌ EmailJS send error:', err);
+        showToast('⚠️ Erro ao enviar notificação — ver consola');
+      });
     }
 
     // ── Payment checkbox handler ──────────────────────────────────────────
